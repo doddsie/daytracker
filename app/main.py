@@ -27,7 +27,7 @@ def get_db_client() -> CouchDBClient:
     return _db_client
 
 def create_entry(item: DiaryCreate, db: CouchDBClient = Depends(get_db_client)):
-@app.post(
+    @app.post(
     "/entries",
     response_model=DiaryOut,
     status_code=status.HTTP_201_CREATED,
