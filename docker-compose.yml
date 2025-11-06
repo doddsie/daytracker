@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  couchdb:
+    image: couchdb:3.3.2
+    ports:
+      - "5984:5984"
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5984/_up || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - COUCHDB_URL=http://admin:password@couchdb:5984
+      - COUCHDB_DB=diary
+    volumes:
+      - ./app:/app/app
+
+  tester:
+    image: api
+    depends_on:
+      couchdb:
+        condition: service_healthy
+    entrypoint: ["pytest", "-q"]
+    volumes:
+      - ./:/workdir
+    working_dir: /workdir
+
+volumes:
+  couchdb_data:
