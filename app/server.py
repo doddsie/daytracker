@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from typing import List
+import datetime
 from uuid import uuid4
 
 from .schemas import DiaryCreate, DiaryOut, DiaryUpdate
@@ -38,6 +39,8 @@ def get_db_client() -> CouchDBClient:
 def create_entry(item: DiaryCreate, db: CouchDBClient = Depends(get_db_client)):
     payload = item.dict()
     payload["id"] = str(uuid4())
+    # server-populated timestamp for the entry (UTC)
+    payload["entry_date"] = datetime.datetime.utcnow()
     created = db.create_entry(payload)
     return created
 

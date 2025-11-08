@@ -1,5 +1,6 @@
 import os
 from typing import Dict, Any, List, Optional
+import datetime
 
 import httpx
 
@@ -38,11 +39,15 @@ class CouchDBClient:
             self._memory[_id] = doc
             return {"id": _id, "rev": "1", **{k: v for k, v in doc.items() if not k.startswith("_")}}
 
+        # convert any date objects to ISO strings before sending to httpx/json
+        payload = self._prepare_json(data)
+
         # POST to DB creates a doc with an auto-generated id
-        r = self.client.post(f"/{self.db_name}", json=data)
+        r = self.client.post(f"/{self.db_name}", json=payload)
         r.raise_for_status()
         resp = r.json()
-        return {"id": resp.get("id"), "rev": resp.get("rev"), **data}
+        # return the stored document fields converted for JSON (dates -> iso strings)
+        return {"id": resp.get("id"), "rev": resp.get("rev"), **payload}
 
     def get_entry(self, entry_id: str) -> Optional[Dict[str, Any]]:
         if self._use_memory:
@@ -77,6 +82,7 @@ class CouchDBClient:
         rev = doc.get("_rev")
         # merge and PUT
         payload = {**doc, **data, "_rev": rev}
+        payload = self._prepare_json(payload)
         r = self.client.put(f"/{self.db_name}/{entry_id}", json=payload)
         r.raise_for_status()
         resp = r.json()
@@ -115,3 +121,13 @@ class CouchDBClient:
             doc = row.get("doc", {})
             out.append({"id": doc.get("_id"), "rev": doc.get("_rev"), **{kk: vv for kk, vv in doc.items() if not kk.startswith("_")}})
         return out
+
+    def _prepare_json(self, obj: Any) -> Any:
+        """Recursively convert date/datetime objects to ISO format strings for JSON encoding."""
+        if isinstance(obj, dict):
+            return {k: self._prepare_json(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._prepare_json(v) for v in obj]
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        return obj

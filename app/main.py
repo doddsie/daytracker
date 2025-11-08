@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.encoders import jsonable_encoder
 from typing import List
 from uuid import uuid4
 import os
+from datetime import date
 
-from .schemas import DiaryCreate, DiaryOut, DiaryUpdate
+from .schemas import DiaryCreate, DiaryOut, DiaryUpdate, date_serializer
 from .db import CouchDBClient
 
 app = FastAPI(
@@ -26,8 +28,7 @@ def get_db_client() -> CouchDBClient:
         _db_client = CouchDBClient()
     return _db_client
 
-def create_entry(item: DiaryCreate, db: CouchDBClient = Depends(get_db_client)):
-    @app.post(
+@app.post(
     "/entries",
     response_model=DiaryOut,
     status_code=status.HTTP_201_CREATED,
@@ -38,6 +39,9 @@ def create_entry(item: DiaryCreate, db: CouchDBClient = Depends(get_db_client)):
 def create_entry(item: DiaryCreate, db: CouchDBClient = Depends(get_db_client)):
     payload = item.dict()
     payload["id"] = str(uuid4())
+    # Ensure dates are serialized
+    if isinstance(payload.get("entry_date"), date):
+        payload["entry_date"] = payload["entry_date"].isoformat()
     created = db.create_entry(payload)
     return created
 

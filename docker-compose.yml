@@ -14,12 +14,25 @@ services:
       timeout: 3s
       retries: 10
 
+  couchdb-init:
+    image: curlimages/curl:8.4.0
+    volumes:
+      - ./scripts:/scripts
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      - COUCHDB_DB=diary
+    entrypoint: ["/bin/sh", "/scripts/init-couchdb.sh"]
+    depends_on:
+      couchdb:
+        condition: service_healthy
+
   api:
     image: daytracker_api
     build: .
     depends_on:
-      couchdb:
-        condition: service_healthy
+      couchdb-init:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
@@ -31,8 +44,8 @@ services:
   tester:
     image: daytracker_api
     depends_on:
-      couchdb:
-        condition: service_healthy
+      couchdb-init:
+        condition: service_completed_successfully
     entrypoint: ["pytest", "-q"]
     volumes:
       - ./:/workdir
